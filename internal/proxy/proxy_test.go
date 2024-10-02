@@ -135,8 +135,7 @@ func TestProxy_ServeHTTP(t *testing.T) {
 	})
 }
 
-func newUrl(raw string) *URL {
+func newUrl(raw string) *url.URL {
 	u, _ := url.Parse(raw)
-	uu := URL(*u)
-	return &uu
+	return u
 }

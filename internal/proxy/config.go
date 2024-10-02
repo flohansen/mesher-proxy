@@ -2,33 +2,9 @@ package proxy
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
-	"net/url"
 	"os"
 )
-
-type URL url.URL
-
-func (u URL) MarshalJSON() ([]byte, error) {
-	b := []byte(fmt.Sprintf("%s://%s%s", u.Scheme, u.Host, u.Path))
-	return b, nil
-}
-
-func (u *URL) UnmarshalJSON(b []byte) error {
-	var urlString string
-	if err := json.Unmarshal(b, &urlString); err != nil {
-		return err
-	}
-
-	url, err := url.Parse(urlString)
-	if err != nil {
-		return err
-	}
-
-	*u = URL(*url)
-	return nil
-}
 
 type Config struct {
 	Watch WatchConfig `json:"watch"`

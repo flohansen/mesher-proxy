@@ -28,7 +28,7 @@ type HttpClient interface {
 
 type Target struct {
 	Path string
-	URL  *URL
+	URL  *url.URL
 }
 
 type Proxy struct {
@@ -228,11 +228,9 @@ func WithTarget(path string, target string) ProxyOpt {
 			panic(err)
 		}
 
-		u := URL(*url)
-
 		p.services[path] = Target{
 			Path: path,
-			URL:  &u,
+			URL:  url,
 		}
 	}
 }
