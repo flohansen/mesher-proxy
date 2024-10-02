@@ -5,12 +5,31 @@
 * File Watching: Run commands whenever files change.
 * Hot Reload: HTML pages will automatically reload in real time if a watched file change.
 
+## Usage
+
+### Initialize config
+
+```bash
+sentinel init
+```
+
+### Run
+
+```bash
+# use the config in the same directory
+sentinel
+# or specify it by using the config flag
+sentinel -config=/path/to/config
+```
+
 ## How to use the repository
 
 ### Setup project
 First run
 
-    go generate ./...
+```bash
+go generate ./...
+```
 
 in the projects root directory. This will generate all files needed to work in
 this project.
@@ -18,6 +37,8 @@ this project.
 ### Run tests
 You run all tests by executing
 
-    go test ./...
+```bash
+go test ./...
+```
 
 in the projects root directory.

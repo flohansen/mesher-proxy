@@ -6,6 +6,20 @@ import (
 	"os"
 )
 
+var DefaultConfig = &Config{
+	Watch: WatchConfig{
+		Files: []string{"./templates/"},
+		Build: []string{"go build -o ./tmp/main ./cmd/main.go"},
+		Exec:  []string{"./tmp/main"},
+	},
+	Proxy: ProxyConfig{
+		Address: ":8080",
+		Targets: map[string]string{
+			"/": "http://localhost:3000/",
+		},
+	},
+}
+
 type Config struct {
 	Watch WatchConfig `json:"watch"`
 	Proxy ProxyConfig `json:"proxy"`
