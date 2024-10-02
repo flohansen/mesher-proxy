@@ -5,7 +5,7 @@
 * File Watching: Run commands whenever files change.
 * Hot Reload: HTML pages will automatically reload in real time if a watched file change.
 
-## Contribute
+## How to use the repository
 
 ### Setup project
 First run
