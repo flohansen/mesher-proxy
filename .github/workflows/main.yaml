@@ -36,17 +36,18 @@ jobs:
     - name: Get current tag
       id: get_current_tag
       run: |
-        current_tag=$(git tag -l)
+        current_tag=$(git tag -l --sort=-creatordate | head -n 1)
         if [[ -z "$current_tag" ]]; then
           current_tag="v0.0.0"
         fi
         echo "::set-output name=current_tag::$current_tag"
+        echo "current_tag=$current_tag" >> $GITHUB_OUTPUT
 
     - name: Get current commit type
       id: get_current_commit_type
       run: |
         commit_type=$(git show -s --format=%s | awk -F ':' '{ print $1 }')
-        echo "::set-output name=commit_type::$commit_type"
+        echo "commit_type=$commit_type" >> $GITHUB_OUTPUT
 
     - name: Create new tag
       id: create_new_tag
@@ -67,12 +68,13 @@ jobs:
           git tag "$new_tag" main
           git push origin tag "$new_tag"
         fi
-        echo "::set-output name=new_tag::$new_tag"
+        echo "new_tag=$new_tag" >> $GITHUB_OUTPUT
 
     - name: Create release
       if: steps.create_new_tag.outputs.new_tag != ''
       uses: actions/create-release@v1
       with:
+        token: ${{ secrets.GITHUB_TOKEN }}
         tag_name: ${{ steps.create_new_tag.outputs.new_tag }}
         draft: false
         prerelease: false
