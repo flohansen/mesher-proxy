@@ -5,13 +5,18 @@
 * File Watching: Run commands whenever files change.
 * Hot Reload: HTML pages will automatically reload in real time if a watched file change.
 
-## Usage
+## Quick Start
+
+### Install
+
+```bash
+go install github.com/flohansen/sentinel/cmd/sentinel@v0.0.1
+```
 
 ### Initialize config
 
 ```bash
-sentinel init
-```
+sentinel init ```
 
 ### Run
 
