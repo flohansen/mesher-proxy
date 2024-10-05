@@ -36,7 +36,7 @@ jobs:
     - name: Get current tag
       id: get_current_tag
       run: |
-        current_tag=$(git describe --tags --abbrev=0 128>/dev/null)
+        current_tag=$(git tag -l)
         if [[ -z "$current_tag" ]]; then
           current_tag="v0.0.0"
         fi
