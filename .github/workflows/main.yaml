@@ -63,10 +63,6 @@ jobs:
             new_tag=$(echo "$current_tag" | awk -F 'v' '{ print $2 }' | awk -F '.' '{ print "v" $1+1 "." $2 "." $3 }')
             ;;
         esac
-        if [[ -n "$new_tag" ]]; then
-          git tag "$new_tag" main
-          git push origin tag "$new_tag"
-        fi
         echo "new_tag=$new_tag" >> $GITHUB_OUTPUT
 
     - name: Create release
@@ -75,4 +71,4 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag: MyTag
+        tag: ${{ steps.create_new_tag.outputs.new_tag }}
