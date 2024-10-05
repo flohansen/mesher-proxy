@@ -29,3 +29,46 @@ jobs:
     - name: Go Test
       run: |
         go test ./...
+
+    - name: Get current tag
+      id: get_current_tag
+      run: |
+        current_tag=$(git describe --tags --abbrev=0 2>/dev/null)
+        if [[ -z "$current_tag" ]]; then
+          current_tag="v0.0.0"
+        fi
+        echo "::set-output name=current_tag::$current_tag"
+
+    - name: Get current commit type
+      id: get_current_commit_type
+      run: |
+        commit_type=$(git show -s --format=%s | awk -F ':' '{ print $1 }')
+        echo "::set-output name=commit_type::$commit_type"
+
+    - name: Create new tag
+      id: create_new_tag
+      run: |
+        case "${{ steps.get_current_commit_type.outputs.current_tag }}" in
+          "fix")
+            new_tag=$(git describe --tags --abbrev=0 | awk -F 'v' '{ print $2 }' | awk -F '.' '{ print "v" $1 "." $2 "." $3+1 }')
+            ;;
+          "feat")
+            new_tag=$(git describe --tags --abbrev=0 | awk -F 'v' '{ print $2 }' | awk -F '.' '{ print "v" $1 "." $2+1 "." $3 }')
+            ;;
+          "BREAKING CHANGE")
+            new_tag=$(git describe --tags --abbrev=0 | awk -F 'v' '{ print $2 }' | awk -F '.' '{ print "v" $1+1 "." $2 "." $3 }')
+            ;;
+        esac
+        if [[ -n "$new_tag" ]]; then
+          git tag "$new_tag" main
+          git push origin tag "$new_tag"
+        fi
+        echo "::set-output name=new_tag::$new_tag"
+
+    - name: Create release
+      if: steps.create_new_tag.outputs.new_tag != ''
+      uses: actions/create-release@v1
+      with:
+        tag_name: ${{ steps.create_new_tag.outputs.new_tag }}
+        draft: false
+        prerelease: false
