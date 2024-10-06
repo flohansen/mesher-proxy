@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/websocket"
@@ -38,8 +39,8 @@ type Proxy struct {
 	u        *websocket.Upgrader
 	conns    map[*websocket.Conn]struct{}
 	files    []string
-	execs    []string
-	builds   []string
+	execs    []CmdConfig
+	builds   []CmdConfig
 }
 
 func NewProxy(opts ...ProxyOpt) *Proxy {
@@ -62,7 +63,9 @@ func NewProxy(opts ...ProxyOpt) *Proxy {
 }
 
 func (p *Proxy) Start() error {
-	runCmds(context.Background(), p.builds)
+	for _, cmd := range p.builds {
+		startCmd(context.Background(), cmd)
+	}
 	if err := p.startWatcher(p.files, p.execs); err != nil {
 		return fmt.Errorf("error starting file watcher: %s", err)
 	}
@@ -144,14 +147,16 @@ func (p *Proxy) handleWebsocket(w http.ResponseWriter, r *http.Request) {
 	p.conns[conn] = struct{}{}
 }
 
-func (p *Proxy) startWatcher(files []string, cmds []string) error {
+func (p *Proxy) startWatcher(files []string, cmds []CmdConfig) error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return fmt.Errorf("error creating file system watcher: %s", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	startCmds(ctx, cmds)
+	for _, cmd := range cmds {
+		startCmd(ctx, cmd)
+	}
 
 	go func() {
 		for {
@@ -162,7 +167,9 @@ func (p *Proxy) startWatcher(files []string, cmds []string) error {
 					cancel()
 
 					ctx, cancel = context.WithCancel(context.Background())
-					startCmds(ctx, cmds)
+					for _, cmd := range cmds {
+						startCmd(ctx, cmd)
+					}
 
 					for conn := range p.conns {
 						conn.WriteMessage(websocket.BinaryMessage, []byte(""))
@@ -181,26 +188,27 @@ func (p *Proxy) startWatcher(files []string, cmds []string) error {
 	return nil
 }
 
-func startCmds(ctx context.Context, cmds []string) {
-	for _, cmd := range cmds {
-		args := strings.Split(cmd, " ")
-		c := exec.CommandContext(ctx, args[0], args[1:]...)
-		c.Stdout = os.Stdout
-		c.Stderr = os.Stderr
+func startCmd(ctx context.Context, cmd CmdConfig) {
+	args := strings.Split(cmd.Cmd, " ")
+	c := exec.CommandContext(ctx, args[0], args[1:]...)
+	c.Stdout = os.Stdout
+	c.Stderr = os.Stderr
 
+	if cmd.Condition != nil {
 		if err := c.Start(); err != nil {
 			log.Printf("error running command: %s", err)
 		}
-	}
-}
 
-func runCmds(ctx context.Context, cmds []string) {
-	for _, cmd := range cmds {
-		args := strings.Split(cmd, " ")
-		c := exec.CommandContext(ctx, args[0], args[1:]...)
-		c.Stdout = os.Stdout
-		c.Stderr = os.Stderr
+		for {
+			args := strings.Split(*cmd.Condition, " ")
+			c := exec.CommandContext(ctx, args[0], args[1:]...)
+			if err := c.Run(); err == nil {
+				break
+			}
 
+			time.Sleep(1 * time.Second)
+		}
+	} else {
 		if err := c.Run(); err != nil {
 			log.Printf("error running command: %s", err)
 		}
@@ -241,13 +249,13 @@ func WithFiles(files ...string) ProxyOpt {
 	}
 }
 
-func WithBuildCmds(cmds ...string) ProxyOpt {
+func WithBuildCmds(cmds ...CmdConfig) ProxyOpt {
 	return func(p *Proxy) {
 		p.builds = append(p.builds, cmds...)
 	}
 }
 
-func WithCmds(cmds ...string) ProxyOpt {
+func WithCmds(cmds ...CmdConfig) ProxyOpt {
 	return func(p *Proxy) {
 		p.execs = append(p.execs, cmds...)
 	}

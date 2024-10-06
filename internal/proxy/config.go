@@ -6,11 +6,24 @@ import (
 	"os"
 )
 
+func str(str string) *string {
+	return &str
+}
+
 var DefaultConfig = &Config{
 	Watch: WatchConfig{
 		Files: []string{"./templates/"},
-		Build: []string{"go build -o ./tmp/main ./cmd/main.go"},
-		Exec:  []string{"./tmp/main"},
+		Build: []CmdConfig{
+			{
+				Cmd: "go build -o ./tmp/main ./cmd/main.go",
+			},
+		},
+		Exec: []CmdConfig{
+			{
+				Cmd:       "./tmp/main",
+				Condition: str("curl -Is http://localhost:3000/health -o /dev/null"),
+			},
+		},
 	},
 	Proxy: ProxyConfig{
 		Address: ":8080",
@@ -31,9 +44,14 @@ type ProxyConfig struct {
 }
 
 type WatchConfig struct {
-	Files []string `json:"files"`
-	Build []string `json:"build"`
-	Exec  []string `json:"exec"`
+	Files []string    `json:"files"`
+	Build []CmdConfig `json:"build"`
+	Exec  []CmdConfig `json:"exec"`
+}
+
+type CmdConfig struct {
+	Cmd       string  `json:"cmd"`
+	Condition *string `json:"condition,omitempty"`
 }
 
 func NewConfig(opts ...ProxyConfigOpt) *Config {
