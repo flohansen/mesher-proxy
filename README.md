@@ -1,4 +1,4 @@
-# Sentinel: Simplistic development server for building web applications
+# Sentinel: Simple development server for building web applications
 
 ## Features
 * Proxy: A configurable proxy server to test your application and its dependencies.
@@ -10,7 +10,7 @@
 ### Install
 
 ```bash
-go install github.com/flohansen/sentinel/cmd/sentinel@v0.0.1
+go install github.com/flohansen/sentinel/cmd/sentinel@v0.1.0
 ```
 
 ### Initialize config
