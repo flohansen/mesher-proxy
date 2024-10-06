@@ -16,7 +16,8 @@ go install github.com/flohansen/sentinel/cmd/sentinel@v0.1.0
 ### Initialize config
 
 ```bash
-sentinel init ```
+sentinel init
+```
 
 ### Run
 
