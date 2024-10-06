@@ -1,16 +1,13 @@
-name: CI/CD
+name: Release
 
 on:
   push:
     branches:
     - main
 
-permissions:
-  contents: write
-
 jobs:
   test:
-    name: Run tests
+    name: Run Tests
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
@@ -32,6 +29,14 @@ jobs:
     - name: Go Test
       run: |
         go test ./...
+
+  release:
+    needs: [test]
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
 
     - name: Get current tag
       id: get_current_tag
