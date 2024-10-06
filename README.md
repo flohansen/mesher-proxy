@@ -1,5 +1,6 @@
 # Sentinel: Simple development server for building web applications
 ![release](https://github.com/flohansen/sentinel/actions/workflows/release.yaml/badge.svg)
+![version](https://img.shields.io/github/v/release/flohansen/sentinel)
 
 ## Features
 * Proxy: A configurable proxy server to test your application and its dependencies.
