@@ -2,9 +2,11 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"runtime/debug"
 
 	"github.com/flohansen/sentinel/internal/cli"
 	"github.com/flohansen/sentinel/internal/proxy"
@@ -19,6 +21,13 @@ func main() {
 
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
+		case "version":
+			info, ok := debug.ReadBuildInfo()
+			if !ok {
+				log.Fatal("could not read version")
+			}
+
+			fmt.Printf("%s\n", info.Main.Version)
 		case "init":
 			if err := cli.Init(); err != nil {
 				log.Fatalf("init error: %s", err)
