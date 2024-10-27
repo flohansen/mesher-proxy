@@ -44,6 +44,7 @@ jobs:
     - name: Get current tag
       id: get_current_tag
       run: |
+        git fetch --tags
         current_tag=$(git tag -l --sort=-creatordate | head -n 1)
         if [[ -z "$current_tag" ]]; then
           current_tag="v0.0.0"

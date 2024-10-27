@@ -6,11 +6,12 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"runtime/debug"
 
 	"github.com/flohansen/sentinel/internal/cli"
 	"github.com/flohansen/sentinel/internal/proxy"
 )
+
+var version string
 
 var (
 	configFile = flag.String("config", ".sentinel.json", "The path to the config file")
@@ -22,12 +23,7 @@ func main() {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "version":
-			info, ok := debug.ReadBuildInfo()
-			if !ok {
-				log.Fatal("could not read version")
-			}
-
-			fmt.Printf("%s\n", info.Main.Version)
+			fmt.Printf("%s\n", version)
 		case "init":
 			if err := cli.Init(); err != nil {
 				log.Fatalf("init error: %s", err)
