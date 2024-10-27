@@ -12,7 +12,10 @@
 ### Install
 
 ```bash
-go install github.com/flohansen/sentinel/cmd/sentinel@v0.1.0
+export OS=$(uname | awk '{print tolower($0)}')
+export ARCH=$(case $(uname -m) in x86_64) echo -n amd64 ;; aarch64) echo -n arm64 ;; *) echo -n $(uname -m) ;; esac)
+wget "https://github.com/flohansen/sentinel/releases/download/v0.1.0/sentinel_${OS}_${ARCH}.tar.gz"
+sudo tar -xzf "sentinel_${OS}_${ARCH}.tar.gz" -C /usr/local/bin
 ```
 
 ### Initialize config
