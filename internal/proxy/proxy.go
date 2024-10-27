@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/flohansen/sentinel/internal/color"
 	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/websocket"
 )
@@ -143,8 +144,18 @@ func (p *Proxy) handleWebsocket(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	defer conn.Close()
 
 	p.conns[conn] = struct{}{}
+
+	for {
+		_, _, err := conn.ReadMessage()
+		if err != nil {
+			break
+		}
+	}
+
+	delete(p.conns, conn)
 }
 
 func (p *Proxy) startWatcher(files []string, cmds []CmdConfig) error {
@@ -163,17 +174,20 @@ func (p *Proxy) startWatcher(files []string, cmds []CmdConfig) error {
 			select {
 			case ev := <-watcher.Events:
 				if ev.Has(fsnotify.Write) {
-					log.Print(ev.Name)
+					fmt.Printf(color.Green+"detected change in"+color.Reset+" %s\n", ev.Name)
 					cancel()
 
 					ctx, cancel = context.WithCancel(context.Background())
 					for _, cmd := range cmds {
+						fmt.Printf(color.Yellow+"execute"+color.Reset+" %s\n", cmd.Cmd)
 						startCmd(ctx, cmd)
 					}
 
 					for conn := range p.conns {
+						fmt.Printf(color.Yellow+"refresh"+color.Reset+" %s\n", conn.RemoteAddr())
 						conn.WriteMessage(websocket.BinaryMessage, []byte(""))
 					}
+					fmt.Print(color.Yellow + "done" + color.Reset + "\n")
 				}
 			case err := <-watcher.Errors:
 				log.Fatalf("error watching file system: %s", err)
