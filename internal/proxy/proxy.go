@@ -3,20 +3,15 @@
 package proxy
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
-	"os"
-	"os/exec"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/flohansen/sentinel/internal/color"
-	"github.com/fsnotify/fsnotify"
 	"github.com/gorilla/websocket"
 )
 
@@ -39,9 +34,6 @@ type Proxy struct {
 	services map[string]Target
 	u        *websocket.Upgrader
 	conns    map[*websocket.Conn]struct{}
-	files    []string
-	execs    []CmdConfig
-	builds   []CmdConfig
 }
 
 func NewProxy(opts ...ProxyOpt) *Proxy {
@@ -64,14 +56,14 @@ func NewProxy(opts ...ProxyOpt) *Proxy {
 }
 
 func (p *Proxy) Start() error {
-	for _, cmd := range p.builds {
-		startCmd(context.Background(), cmd)
-	}
-	if err := p.startWatcher(p.files, p.execs); err != nil {
-		return fmt.Errorf("error starting file watcher: %s", err)
-	}
-
 	return http.ListenAndServe(p.addr, p)
+}
+
+func (p *Proxy) RefreshConnections() {
+	for conn := range p.conns {
+		fmt.Printf(color.Yellow+"refresh"+color.Reset+" %s\n", conn.RemoteAddr())
+		conn.WriteMessage(websocket.BinaryMessage, []byte(""))
+	}
 }
 
 func (p *Proxy) getUrl(r *http.Request) (Target, bool) {
@@ -158,77 +150,6 @@ func (p *Proxy) handleWebsocket(w http.ResponseWriter, r *http.Request) {
 	delete(p.conns, conn)
 }
 
-func (p *Proxy) startWatcher(files []string, cmds []CmdConfig) error {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return fmt.Errorf("error creating file system watcher: %s", err)
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	for _, cmd := range cmds {
-		startCmd(ctx, cmd)
-	}
-
-	go func() {
-		for {
-			select {
-			case ev := <-watcher.Events:
-				if ev.Has(fsnotify.Write) {
-					fmt.Printf(color.Green+"detected change in"+color.Reset+" %s\n", ev.Name)
-					cancel()
-
-					ctx, cancel = context.WithCancel(context.Background())
-					for _, cmd := range cmds {
-						fmt.Printf(color.Yellow+"execute"+color.Reset+" %s\n", cmd.Cmd)
-						startCmd(ctx, cmd)
-					}
-
-					for conn := range p.conns {
-						fmt.Printf(color.Yellow+"refresh"+color.Reset+" %s\n", conn.RemoteAddr())
-						conn.WriteMessage(websocket.BinaryMessage, []byte(""))
-					}
-					fmt.Print(color.Yellow + "done" + color.Reset + "\n")
-				}
-			case err := <-watcher.Errors:
-				log.Fatalf("error watching file system: %s", err)
-			}
-		}
-	}()
-
-	for _, file := range files {
-		watcher.Add(file)
-	}
-
-	return nil
-}
-
-func startCmd(ctx context.Context, cmd CmdConfig) {
-	args := strings.Split(cmd.Cmd, " ")
-	c := exec.CommandContext(ctx, args[0], args[1:]...)
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
-
-	if cmd.Condition != nil {
-		if err := c.Start(); err != nil {
-			log.Printf("error running command: %s", err)
-		}
-
-		for {
-			args := strings.Split(*cmd.Condition, " ")
-			c := exec.CommandContext(ctx, args[0], args[1:]...)
-			if err := c.Run(); err == nil {
-				break
-			}
-
-			time.Sleep(1 * time.Second)
-		}
-	} else {
-		if err := c.Run(); err != nil {
-			log.Printf("error running command: %s", err)
-		}
-	}
-}
-
 type ProxyOpt func(*Proxy)
 
 func WithClient(client HttpClient) ProxyOpt {
@@ -257,32 +178,11 @@ func WithTarget(path string, target string) ProxyOpt {
 	}
 }
 
-func WithFiles(files ...string) ProxyOpt {
+func WithConfig(cfg Config) ProxyOpt {
 	return func(p *Proxy) {
-		p.files = append(p.files, files...)
-	}
-}
+		WithAddr(cfg.Address)(p)
 
-func WithBuildCmds(cmds ...CmdConfig) ProxyOpt {
-	return func(p *Proxy) {
-		p.builds = append(p.builds, cmds...)
-	}
-}
-
-func WithCmds(cmds ...CmdConfig) ProxyOpt {
-	return func(p *Proxy) {
-		p.execs = append(p.execs, cmds...)
-	}
-}
-
-func WithConfig(cfg *Config) ProxyOpt {
-	return func(p *Proxy) {
-		WithFiles(cfg.Watch.Files...)(p)
-		WithBuildCmds(cfg.Watch.Build...)(p)
-		WithCmds(cfg.Watch.Exec...)(p)
-		WithAddr(cfg.Proxy.Address)(p)
-
-		for path, url := range cfg.Proxy.Targets {
+		for path, url := range cfg.Targets {
 			WithTarget(path, url)(p)
 		}
 	}
