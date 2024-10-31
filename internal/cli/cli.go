@@ -25,7 +25,8 @@ func (app *App) PrintVersion(w io.Writer) {
 }
 
 func (app *App) PrintHelp(w io.Writer) {
-	lines := []string{
+	app.PrintVersion(w)
+	for _, line := range []string{
 		"",
 		"Usage: sentinel <command>",
 		"",
@@ -33,10 +34,7 @@ func (app *App) PrintHelp(w io.Writer) {
 		"  init     Create default configuration file",
 		"  run      Run sentinel proxy",
 		"  version  Print the binary version",
-	}
-
-	app.PrintVersion(w)
-	for _, line := range lines {
+	} {
 		w.Write([]byte(line + "\n"))
 	}
 }
