@@ -25,8 +25,24 @@ type CmdConfig struct {
 	Condition *string `json:"condition,omitempty"`
 }
 
-func StartWatcher(proxy *proxy.Proxy, config WatchConfig) error {
-	for _, cmd := range config.Build {
+type Watcher struct {
+	proxy  *proxy.Proxy
+	files  []string
+	execs  []CmdConfig
+	builds []CmdConfig
+}
+
+func NewWatcher(proxy *proxy.Proxy, config WatchConfig) *Watcher {
+	return &Watcher{
+		proxy:  proxy,
+		files:  config.Files,
+		execs:  config.Exec,
+		builds: config.Build,
+	}
+}
+
+func (w *Watcher) Start() error {
+	for _, cmd := range w.builds {
 		startCmd(context.Background(), cmd)
 	}
 
@@ -36,38 +52,37 @@ func StartWatcher(proxy *proxy.Proxy, config WatchConfig) error {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	for _, cmd := range config.Exec {
+	for _, cmd := range w.execs {
 		startCmd(ctx, cmd)
 	}
+	defer cancel()
 
-	go func() {
-		for {
-			select {
-			case ev := <-watcher.Events:
-				if ev.Has(fsnotify.Write) {
-					fmt.Printf(color.Green+"detected change in"+color.Reset+" %s\n", ev.Name)
-					cancel()
-
-					ctx, cancel = context.WithCancel(context.Background())
-					for _, cmd := range config.Exec {
-						fmt.Printf(color.Yellow+"execute"+color.Reset+" %s\n", cmd.Cmd)
-						startCmd(ctx, cmd)
-					}
-
-					proxy.RefreshConnections()
-					fmt.Print(color.Yellow + "done" + color.Reset + "\n")
-				}
-			case err := <-watcher.Errors:
-				log.Fatalf("error watching file system: %s", err)
-			}
-		}
-	}()
-
-	for _, file := range config.Files {
+	for _, file := range w.files {
 		watcher.Add(file)
 	}
 
-	return nil
+	for {
+		select {
+		case ev := <-watcher.Events:
+			if ev.Has(fsnotify.Write) {
+				fmt.Printf(color.Green+"detected change in"+color.Reset+" %s\n", ev.Name)
+				cancel()
+
+				ctx, cancel = context.WithCancel(context.Background())
+				defer cancel()
+
+				for _, cmd := range w.execs {
+					fmt.Printf(color.Yellow+"execute"+color.Reset+" %s\n", cmd.Cmd)
+					startCmd(ctx, cmd)
+				}
+
+				w.proxy.RefreshConnections()
+				fmt.Print(color.Yellow + "done" + color.Reset + "\n")
+			}
+		case err := <-watcher.Errors:
+			return fmt.Errorf("error watching file system: %s", err)
+		}
+	}
 }
 
 func startCmd(ctx context.Context, cmd CmdConfig) {

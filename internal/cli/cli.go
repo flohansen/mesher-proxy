@@ -42,12 +42,23 @@ func (app *App) PrintHelp(w io.Writer) {
 
 func (app *App) Run(config Config) error {
 	proxy := proxy.NewProxy(proxy.WithClient(&http.Client{}), proxy.WithConfig(config.Proxy))
+	watcher := file.NewWatcher(proxy, config.Watch)
 
-	if err := file.StartWatcher(proxy, config.Watch); err != nil {
-		return fmt.Errorf("watcher error: %s", err)
-	}
+	errs := make(chan error)
 
-	return fmt.Errorf("proxy error: %s", proxy.Start())
+	go func() {
+		if err := watcher.Start(); err != nil {
+			errs <- fmt.Errorf("watcher error: %s", err)
+		}
+	}()
+
+	go func() {
+		if err := proxy.Start(); err != nil {
+			errs <- fmt.Errorf("proxy error: %s", err)
+		}
+	}()
+
+	return <-errs
 }
 
 func (a *App) Init() error {
