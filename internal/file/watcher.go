@@ -41,7 +41,7 @@ func NewWatcher(proxy *proxy.Proxy, config WatchConfig) *Watcher {
 	}
 }
 
-func (w *Watcher) Start() error {
+func (w *Watcher) Start(ctx context.Context) error {
 	for _, cmd := range w.builds {
 		startCmd(context.Background(), cmd)
 	}
@@ -51,9 +51,9 @@ func (w *Watcher) Start() error {
 		return fmt.Errorf("error creating file system watcher: %s", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	cmdContext, cancel := context.WithCancel(ctx)
 	for _, cmd := range w.execs {
-		startCmd(ctx, cmd)
+		startCmd(cmdContext, cmd)
 	}
 	defer cancel()
 
@@ -68,12 +68,12 @@ func (w *Watcher) Start() error {
 				fmt.Printf(color.Green+"detected change in"+color.Reset+" %s\n", ev.Name)
 				cancel()
 
-				ctx, cancel = context.WithCancel(context.Background())
+				cmdContext, cancel = context.WithCancel(ctx)
 				defer cancel()
 
 				for _, cmd := range w.execs {
 					fmt.Printf(color.Yellow+"execute"+color.Reset+" %s\n", cmd.Cmd)
-					startCmd(ctx, cmd)
+					startCmd(cmdContext, cmd)
 				}
 
 				w.proxy.RefreshConnections()

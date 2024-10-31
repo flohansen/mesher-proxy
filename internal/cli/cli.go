@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -40,20 +41,21 @@ func (app *App) PrintHelp(w io.Writer) {
 	}
 }
 
-func (app *App) Run(config Config) error {
+func (app *App) Run(ctx context.Context, config Config) error {
 	proxy := proxy.NewProxy(proxy.WithClient(&http.Client{}), proxy.WithConfig(config.Proxy))
 	watcher := file.NewWatcher(proxy, config.Watch)
 
 	errs := make(chan error)
+	defer close(errs)
 
 	go func() {
-		if err := watcher.Start(); err != nil {
+		if err := watcher.Start(ctx); err != nil {
 			errs <- fmt.Errorf("watcher error: %s", err)
 		}
 	}()
 
 	go func() {
-		if err := proxy.Start(); err != nil {
+		if err := proxy.Start(ctx); err != nil {
 			errs <- fmt.Errorf("proxy error: %s", err)
 		}
 	}()

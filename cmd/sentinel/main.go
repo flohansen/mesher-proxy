@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"os"
+	"os/signal"
 
 	"github.com/flohansen/sentinel/internal/cli"
 )
@@ -15,6 +17,9 @@ var (
 )
 
 func main() {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Kill, os.Interrupt)
+	defer stop()
+
 	flag.Parse()
 	app := cli.NewApp(version)
 
@@ -26,7 +31,7 @@ func main() {
 	switch os.Args[1] {
 	case "run":
 		config := cli.NewConfigFromFile(*configFile)
-		if err := app.Run(config); err != nil {
+		if err := app.Run(ctx, config); err != nil {
 			log.Fatalf("run error: %s", err)
 		}
 	case "version":

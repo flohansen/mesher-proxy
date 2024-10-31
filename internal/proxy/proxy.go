@@ -3,6 +3,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -55,8 +56,18 @@ func NewProxy(opts ...ProxyOpt) *Proxy {
 	return p
 }
 
-func (p *Proxy) Start() error {
-	return http.ListenAndServe(p.addr, p)
+func (p *Proxy) Start(ctx context.Context) error {
+	srv := http.Server{
+		Addr:    p.addr,
+		Handler: p,
+	}
+
+	go func() {
+		<-ctx.Done()
+		srv.Close()
+	}()
+
+	return srv.ListenAndServe()
 }
 
 func (p *Proxy) RefreshConnections() {
