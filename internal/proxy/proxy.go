@@ -67,7 +67,11 @@ func (p *Proxy) Start(ctx context.Context) error {
 		srv.Close()
 	}()
 
-	return srv.ListenAndServe()
+	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+		return err
+	}
+
+	return nil
 }
 
 func (p *Proxy) RefreshConnections() {

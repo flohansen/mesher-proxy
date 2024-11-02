@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/flohansen/sentinel/internal/file"
 	"github.com/flohansen/sentinel/internal/proxy"
 )
 
@@ -14,14 +13,14 @@ func str(str string) *string {
 }
 
 var DefaultConfig = &Config{
-	Watch: file.WatchConfig{
+	Watch: WatchConfig{
 		Files: []string{"./templates/"},
-		Build: []file.CmdConfig{
+		Build: []CmdConfig{
 			{
 				Cmd: "go build -o ./tmp/main ./cmd/main.go",
 			},
 		},
-		Exec: []file.CmdConfig{
+		Exec: []CmdConfig{
 			{
 				Cmd:       "./tmp/main",
 				Condition: str("curl -Is http://localhost:3000/health -o /dev/null"),
@@ -38,8 +37,19 @@ var DefaultConfig = &Config{
 
 type Config struct {
 	Version string
-	Watch   file.WatchConfig `json:"watch"`
-	Proxy   proxy.Config     `json:"proxy"`
+	Watch   WatchConfig  `json:"watch"`
+	Proxy   proxy.Config `json:"proxy"`
+}
+
+type WatchConfig struct {
+	Files []string    `json:"files"`
+	Build []CmdConfig `json:"build"`
+	Exec  []CmdConfig `json:"exec"`
+}
+
+type CmdConfig struct {
+	Cmd       string  `json:"cmd"`
+	Condition *string `json:"condition,omitempty"`
 }
 
 func NewConfigFromFile(name string) Config {

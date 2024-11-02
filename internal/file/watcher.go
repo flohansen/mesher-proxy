@@ -3,81 +3,42 @@ package file
 import (
 	"context"
 	"fmt"
-	"log"
-	"os"
-	"os/exec"
-	"strings"
-	"time"
 
-	"github.com/flohansen/sentinel/internal/color"
-	"github.com/flohansen/sentinel/internal/proxy"
 	"github.com/fsnotify/fsnotify"
 )
 
-type WatchConfig struct {
-	Files []string    `json:"files"`
-	Build []CmdConfig `json:"build"`
-	Exec  []CmdConfig `json:"exec"`
-}
-
-type CmdConfig struct {
-	Cmd       string  `json:"cmd"`
-	Condition *string `json:"condition,omitempty"`
-}
-
 type Watcher struct {
-	proxy  *proxy.Proxy
-	files  []string
-	execs  []CmdConfig
-	builds []CmdConfig
+	files    []string
+	fileChan chan string
 }
 
-func NewWatcher(proxy *proxy.Proxy, config WatchConfig) *Watcher {
+func NewWatcher(files []string) *Watcher {
 	return &Watcher{
-		proxy:  proxy,
-		files:  config.Files,
-		execs:  config.Exec,
-		builds: config.Build,
+		files:    files,
+		fileChan: make(chan string),
 	}
 }
 
 func (w *Watcher) Start(ctx context.Context) error {
-	for _, cmd := range w.builds {
-		startCmd(context.Background(), cmd)
-	}
-
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return fmt.Errorf("error creating file system watcher: %s", err)
 	}
-
-	cmdContext, cancel := context.WithCancel(ctx)
-	for _, cmd := range w.execs {
-		startCmd(cmdContext, cmd)
-	}
-	defer cancel()
+	defer watcher.Close()
 
 	for _, file := range w.files {
 		watcher.Add(file)
 	}
 
+	defer close(w.fileChan)
+
 	for {
 		select {
+		case <-ctx.Done():
+			return nil
 		case ev := <-watcher.Events:
 			if ev.Has(fsnotify.Write) {
-				fmt.Printf(color.Green+"detected change in"+color.Reset+" %s\n", ev.Name)
-				cancel()
-
-				cmdContext, cancel = context.WithCancel(ctx)
-				defer cancel()
-
-				for _, cmd := range w.execs {
-					fmt.Printf(color.Yellow+"execute"+color.Reset+" %s\n", cmd.Cmd)
-					startCmd(cmdContext, cmd)
-				}
-
-				w.proxy.RefreshConnections()
-				fmt.Print(color.Yellow + "done" + color.Reset + "\n")
+				w.fileChan <- ev.Name
 			}
 		case err := <-watcher.Errors:
 			return fmt.Errorf("error watching file system: %s", err)
@@ -85,29 +46,6 @@ func (w *Watcher) Start(ctx context.Context) error {
 	}
 }
 
-func startCmd(ctx context.Context, cmd CmdConfig) {
-	args := strings.Split(cmd.Cmd, " ")
-	c := exec.CommandContext(ctx, args[0], args[1:]...)
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
-
-	if cmd.Condition != nil {
-		if err := c.Start(); err != nil {
-			log.Printf("error running command: %s", err)
-		}
-
-		for {
-			args := strings.Split(*cmd.Condition, " ")
-			c := exec.CommandContext(ctx, args[0], args[1:]...)
-			if err := c.Run(); err == nil {
-				break
-			}
-
-			time.Sleep(1 * time.Second)
-		}
-	} else {
-		if err := c.Run(); err != nil {
-			log.Printf("error running command: %s", err)
-		}
-	}
+func (w *Watcher) FileChanges() <-chan string {
+	return w.fileChan
 }
