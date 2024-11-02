@@ -55,16 +55,12 @@ func (app *App) Run(ctx context.Context, config Config) error {
 		if err := watcher.Start(ctx); err != nil {
 			errs <- fmt.Errorf("watcher error: %s", err)
 		}
-
-		log.Println("watcher closed")
 	}()
 
 	go func() {
 		if err := proxy.Start(ctx); err != nil {
 			errs <- fmt.Errorf("proxy error: %s", err)
 		}
-
-		log.Println("proxy closed")
 	}()
 
 	cmdContext, cancel := context.WithCancel(ctx)
@@ -94,7 +90,6 @@ func (app *App) Run(ctx context.Context, config Config) error {
 		fmt.Print(color.Yellow + "done" + color.Reset + "\n")
 	}
 
-	log.Println("file chan closed")
 	return nil
 }
 
